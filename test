@@ -1,0 +1,42 @@
+import numpy as np
+import pandas as pd
+from sklearn.neighbors import KDTree
+
+# Data Loading
+data_path = "./updated_mechanics_data_google.csv"
+mechanics_data = pd.read_csv(data_path)
+
+# Handling missing values
+mechanics_data = mechanics_data.dropna(subset=['Latitude', 'Longitude', 'Specialty'])
+
+# Creating binary encodings for each specialty
+unique_specialties = mechanics_data['Specialty'].unique()
+for specialty in unique_specialties:
+    mechanics_data[specialty] = (mechanics_data['Specialty'] == specialty).astype(int)
+
+def find_top_mechanics_within_range(lat, lon, specialties, n_mechanics=10, distance_range=2):
+    # Filter mechanics based on the selected specialties
+    filtered_data = mechanics_data[mechanics_data[specialties].sum(axis=1) > 0]
+    
+    # Further filter out rows with missing or invalid latitude and longitude values
+    filtered_data = filtered_data.dropna(subset=['Latitude', 'Longitude'])
+    
+    # Construct KDTree using filtered data
+    tree = KDTree(filtered_data[['Latitude', 'Longitude']])
+    
+    # Find indices of mechanics based on proximity within the specified range
+    indices = tree.query_radius([[lat, lon]], r=distance_range/111) # 1 degree is approx. 111 km
+    
+    # Flatten the list of indices and select top mechanics
+    indices = indices[0][:n_mechanics]
+    
+    # Return details of top mechanics
+    return filtered_data.iloc[indices][['Name', 'ID Number', 'Phone Number', 'Address', 'Specialty', 'Latitude', 'Longitude']]
+
+
+if __name__ == "__main__":
+    sample_lat = 24.85
+    sample_lon = 67.05
+    sample_specialties = ['Painter', 'Electrician']
+    results = find_top_mechanics_within_range(sample_lat, sample_lon, sample_specialties)
+    print(results)
